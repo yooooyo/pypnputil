@@ -1,6 +1,7 @@
-import os
 import subprocess as sb
 import re
+import platform
+import sys
 
 class pnpdevice:
 
@@ -43,24 +44,32 @@ class pnpinterface:
 class pnputil:
 
     global process
-    process = ['pnputil']
+    if '32bit' in platform.architecture():
+        process = [r'%systemroot%\Sysnative\pnputil.exe']
+    else:
+        process = [r'pnputil.exe']
     
+    @staticmethod
+    def get_or_None(a_list):
+        return a_list[0] if a_list else None
+
     @staticmethod
     def __device_parse__(string):
         devices = []
         strings = string.split('\n\n')
         for i in strings:
             if not 'Microsoft PnP' in i and i != None and i != '':
-                lines = i.split('\n')
-                instanceid = pnputil.__catch_info_after_colon__(lines[0]).strip()
-                description = pnputil.__catch_info_after_colon__(lines[1]).strip()
-                className = pnputil.__catch_info_after_colon__(lines[2]).strip()
-                classGUID = pnputil.__catch_info_after_colon__(lines[3]).strip()
-                manufacturer = pnputil.__catch_info_after_colon__(lines[4]).strip()
-                status = pnputil.__catch_info_after_colon__(lines[5]).strip()
-                driverName = pnputil.__catch_info_after_colon__(lines[6]).strip()
-                device = pnpdevice(instanceid,description,className,classGUID,manufacturer,status,driverName)
-                devices.append(device)
+                instanceid      = pnputil.get_or_None(re.findall('Instance ID:\s*(.*)',i))
+                description     = pnputil.get_or_None(re.findall('Device Description:\s*(.*)',i))
+                className       = pnputil.get_or_None(re.findall('Class Name:\s*(.*)',i))
+                classGUID       = pnputil.get_or_None(re.findall('Class GUID:\s*(.*)',i))
+                manufacturer    = pnputil.get_or_None(re.findall('Manufacturer Name:\s*(.*)',i))
+                status          = pnputil.get_or_None(re.findall('Status:\s*(.*)',i))
+                driverName      = pnputil.get_or_None(re.findall('Driver Name:\s*(.*)',i))
+                parent          = pnputil.get_or_None(re.findall('Parent:\s*(.*)',i))
+                if instanceid or description or className or classGUID or manufacturer or status or driverName or parent:
+                    device      = pnpdevice(instanceid,description,className,classGUID,manufacturer,status,driverName)
+                    devices.append(device)
         return devices
 
     @staticmethod
@@ -69,39 +78,37 @@ class pnputil:
         strings = string.split('\n\n')
         for i in strings:
             if not 'Microsoft PnP' in i and i != None and i != '':
-                lines = i.split('\n')
-                path = pnputil.__catch_info_after_colon__(lines[0]).strip()
-                description = pnputil.__catch_info_after_colon__(lines[1]).strip()
-                classGUID = pnputil.__catch_info_after_colon__(lines[2]).strip()
-                refString = pnputil.__catch_info_after_colon__(lines[3]).strip()
-                deviceInstanceID = pnputil.__catch_info_after_colon__(lines[4]).strip()
-                status = pnputil.__catch_info_after_colon__(lines[5]).strip()
-                interface = pnpinterface(path,description,classGUID,refString,deviceInstanceID,status)
-                interfaces.append(interface)
+                path                = pnputil.get_or_None(re.findall('Interface Path:\s*()',i))
+                description         = pnputil.get_or_None(re.findall('Interface Description:\s*(.*)',i))
+                classGUID           = pnputil.get_or_None(re.findall('Interface Class GUID:\s*(.*)',i))
+                refString           = pnputil.get_or_None(re.findall('Reference String:\s*(.*)',i))
+                deviceInstanceID    = pnputil.get_or_None(re.findall('Device Instance ID:\s*(.*)',i))
+                status              = pnputil.get_or_None(re.findall('Interface Status:\s*(.*)',i))
+                if path or description or classGUID or refString or deviceInstanceID or status:
+                    interface           = pnpinterface(path,description,classGUID,refString,deviceInstanceID,status)
+                    interfaces.append(interface)
         return interfaces
 
+    @staticmethod
     def __driver_parse__(string):
         drivers = []
         strings = string.split('\n\n')
         for i in strings:
             if not 'Microsoft PnP' in i and i != None and i != '':
-                lines = i.split('\n')
-                if len(lines) <= 7:
-                    publishName = pnputil.__catch_info_after_colon__(lines[0]).strip()
-                    originName = pnputil.__catch_info_after_colon__(lines[1]).strip()
-                    provider = pnputil.__catch_info_after_colon__(lines[2]).strip()
-                    className = pnputil.__catch_info_after_colon__(lines[3]).strip()
-                    classGUID = pnputil.__catch_info_after_colon__(lines[4]).strip()
-                    extendID = None
-                    if '{' in lines[5]:
-                        extendID = pnputil.__catch_info_after_colon__(lines[5])
-                        driverDate,driverVer = pnputil.__catch_info_after_colon__(lines[6]).strip().split(' ')
-                        signerName = pnputil.__catch_info_after_colon__(lines[7]).strip()
-                    else:
-                        driverDate,driverVer = pnputil.__catch_info_after_colon__(lines[5]).strip().split(' ')
-                        signerName = pnputil.__catch_info_after_colon__(lines[6]).strip()
-                    driver = pnpdriver(publishName,originName,provider,className,classGUID,driverDate,driverVer,signerName,extendID)
-                    drivers.append(driver)
+                    publishName = pnputil.get_or_None(re.findall('Published Name:\s*(.*)',i))
+                    originName  = pnputil.get_or_None(re.findall('Original Name:\s*(.*)',i))
+                    provider    = pnputil.get_or_None(re.findall('Provider Name:\s*(.*)',i))
+                    className   = pnputil.get_or_None(re.findall('Class Name:\s*(.*)',i))
+                    classGUID   = pnputil.get_or_None(re.findall('Class GUID:\s*(.*)',i))
+                    driverVer   = pnputil.get_or_None(re.findall('Driver Version:\s*(.*)',i))
+                    driverDate = None
+                    if driverVer:
+                        driverDate,driverVer = driverVer.split('\n')
+                    signerName = pnputil.get_or_None(re.findall('Signer Name:\s*(.*)',i))
+
+                    if publishName or originName or provider or className or classGUID or driverVer or driverDate or signerName:
+                        driver = pnpdriver(publishName,originName,provider,className,classGUID,driverDate,driverVer,signerName)
+                        drivers.append(driver)
         return drivers
 
     @staticmethod
@@ -112,7 +119,7 @@ class pnputil:
 
     @staticmethod
     def __call_pnputil__(cmd):
-        p = sb.Popen(cmd,shell=True,stdout=sb.PIPE,universal_newlines=True)
+        p = sb.Popen(cmd,shell=True,stdout=sb.PIPE,stderr=sb.PIPE,stdin=sb.PIPE,universal_newlines=True,errors='ignore')
         ret = p.poll()
         stdout,error = p.communicate()
 
@@ -209,15 +216,16 @@ class pnputil:
         if drivers:
             cmd.append('/drivers')
 
-        p = sb.Popen(cmd,shell=True,stdout=sb.PIPE,universal_newlines=True)
+        p = sb.Popen(cmd,shell=True,stdout=sb.PIPE,stderr=sb.PIPE,stdin=sb.PIPE,universal_newlines=True,errors='ignore')
         ret = p.poll()
-
+        print(f'{cmd} = {ret}')
         if ret == 0 or ret==None:
-            stdout = p.communicate()[0]
+            stdout,stderr = p.communicate()
             if '/?' in stdout:
                 print(f'input error {" ".join(cmd)}')
+                print(stderr)
             else:
-                print(stdout)
+                print(stderr)
                 devices = pnputil.__device_parse__(stdout)
         return devices
 
@@ -270,22 +278,33 @@ class pnputil:
 
 class infDriver(pnputil):
     def __init__(self,path):
-        
-        if '.inf' in path.lower():
+        if path.lower().index('.inf') > -1:
             self.path = path
             with open(self.path,'r',errors='ignore') as f:
                 self.inf = f.read().replace('\x00','').lower()
-                self.Class = re.findall('class\s*=\s*(\w+)',self.inf)[0]
-                self.classGUID = re.findall('classguid\s*=\s*(.{1,300}})',self.inf)[0]
-                self.driverDate,self.driverVer = re.findall('driverver\s*=\s*(.{1,50})\s*;',self.inf)[0].replace(';','').strip().split(',')
+                self.Class = pnputil.get_or_None(re.findall('class\s*=\s*(\w+)',self.inf))
+
+                self.classGUID = pnputil.get_or_None(re.findall('classguid\s*=\s*(.{1,300}})',self.inf))
+                devices = pnputil.enum_devices()
+                verdate = pnputil.get_or_None(re.findall('driverver\s*=\s*(.{1,50})\s*;',self.inf))
+                self.driverDate = None
+                self.driverVer  = None
+                if verdate:
+                    self.driverDate,self.driverVer = verdate.replace(';','').strip().split(',')
+
                 self.supporthwids = list(set(re.findall(r'(pci\\ven.*)\s,',self.inf)))
-                devices = pnputil.enum_devices(ClassOrGUID=self.Class)
-                devices = [device for device in devices for shwid in self.supporthwids if device.instanceid.lower().find(shwid) > -1]
-                if len(devices) == 1:
-                    self.currenthwid   = devices[0].instanceid
-                    self.currentDriver = devices[0].driverName
+
+                self.currenthwid = None
+                self.currentDriver = None
+
+                if devices:
+                    devices = [device for device in devices for shwid in self.supporthwids if device.instanceid.lower().find(shwid) > -1]
+                    self.currenthwid   = pnputil.get_or_None(devices).instanceid
+                    self.currentDriver = pnputil.get_or_None(devices).driverName
+
         else:
-            raise ValueError
+            print('not an inf file')
+            raise Exception
 
     def install(self):
         pnputil.add_driver(self.path,install=True)
@@ -296,7 +315,20 @@ class infDriver(pnputil):
     def fullreplace(self):
         if self.currentDriver:
             pnputil.delete_driver(self.currentDriver,uninstall=True,force=True)
-            pnputil.add_driver(self.path,install=True)
+        pnputil.add_driver(self.path,install=True)
+    def show(self):
+        info = f'''
+        path            {self.path}
+        class           {self.Class}
+        class guid      {self.classGUID}
+        driver date     {self.driverDate}
+        driver Ver      {self.driverVer}
+
+        currenthwid     {self.currenthwid}
+        currentdriver   {self.currentDriver}
+        '''
+        print(info)
+
         
     
         
@@ -305,6 +337,26 @@ class infDriver(pnputil):
 
 
 if __name__ == "__main__":
-    f = infDriver(r'D:\Work\HP_Project\driverSwitcher\netwtw08.inf')
-    f.replace()
-    pass
+    args = sys.argv
+    inf = infDriver(args[1])
+    # inf = infDriver(r'D:\Work\HP_Project\pnputil_py\testinf\netwtw08.inf')
+    if inf:
+        print(f'found driver {inf.path}')
+        args = input('''
+        -i      for install
+        -u      for uninstall
+        -r      for clean current driver and replace this driver
+        -s      show inf information
+        ''')
+        if args == '-i':
+            inf.install()
+        elif args == '-u':
+            inf.uninstall()
+        elif args == '-r':
+            inf.fullreplace()
+        elif args == '-s':
+            inf.show()
+
+        
+
+    

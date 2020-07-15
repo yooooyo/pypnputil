@@ -1,2 +1,7 @@
 .vscode
 env
+testinf
+build
+dist
+*.spec
+__pycache__
