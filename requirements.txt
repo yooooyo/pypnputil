@@ -3,7 +3,7 @@ appdirs==1.4.3
 asgiref==3.2.3
 astroid==2.4.0
 backcall==0.1.0
-certifi==2020.4.5.1
+certifi==2022.12.7
 chardet==3.0.4
 chromedriver-py==81.0.4044.69
 colorama==0.4.3
